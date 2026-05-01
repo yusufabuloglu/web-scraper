@@ -1,18 +1,30 @@
+import argparse
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 
-url = "https://news.ycombinator.com/"
+def scrape(url):
+    r = requests.get(url, timeout=10)
+    r.raise_for_status()
+    soup = BeautifulSoup(r.text, "html.parser")
 
-response = requests.get(url)
-soup = BeautifulSoup(response.text, "html.parser")
+    data = []
+    for a in soup.select(".titleline a"):
+        data.append({
+            "title": a.get_text(strip=True),
+            "link": a.get("href")
+        })
+    return pd.DataFrame(data)
 
-titles = []
+def main():
+    parser = argparse.ArgumentParser(description="Simple web scraper")
+    parser.add_argument("--url", required=True, help="Target URL")
+    parser.add_argument("--out", default="output.csv", help="Output CSV file")
+    args = parser.parse_args()
 
-for item in soup.select(".titleline"):
-    titles.append(item.get_text())
+    df = scrape(args.url)
+    df.to_csv(args.out, index=False)
+    print(f"Saved {len(df)} rows to {args.out}")
 
-df = pd.DataFrame(titles, columns=["Title"])
-df.to_csv("news_titles.csv", index=False)
-
-print("Data scraped and saved to news_titles.csv")
+if __name__ == "__main__":
+    main()
